@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="030415bc-8ff9-434f-a04e-3bd29159eed0" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="MainFlow" doc:id="a3c50c9b-c750-4cda-abb0-b1d6656fd6e8" >
+		<scheduler doc:name="Scheduler" doc:id="e95384f2-ba8a-4a65-89ed-c6b5871a37ba" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="${routes.Schedule}" timeUnit="MINUTES"/>
+			</scheduling-strategy>
+		</scheduler>
+		<foreach doc:name="For Each" doc:id="a72d1545-f957-4565-b79a-3e0df389bf94" collection="#[0 to (p('routes.count') - 1)]">
+			<set-variable value="#[payload]" doc:name="Set routeIndex" doc:id="9a4c1c10-89bd-47da-9f73-786332916508" variableName="routeIndex"/>
+			<ee:transform doc:name="Transform Message" doc:id="60d57298-060b-4bac-b2f6-2949a9d95ab1" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    routeName: p('routes.' ++ vars.routeIndex ++ '.routeName'),
+    routeStatus: p('routes.' ++ vars.routeIndex ++ '.routeStatus'),
+    routeSchedule: p('routes.' ++ vars.routeIndex ++ '.routeSchedule'),
+    source: {
+        host: p('routes.' ++ vars.routeIndex ++ '.source.host'),
+        port: p('routes.' ++ vars.routeIndex ++ '.source.port'),
+        username: p('routes.' ++ vars.routeIndex ++ '.source.username'),
+        password: p('routes.' ++ vars.routeIndex ++ '.source.password'),
+        path: p('routes.' ++ vars.routeIndex ++ '.source.path')
+    },
+    destination: {
+        host: p('routes.' ++ vars.routeIndex ++ '.destination.host'),
+        port: p('routes.' ++ vars.routeIndex ++ '.destination.port'),
+        username: p('routes.' ++ vars.routeIndex ++ '.destination.username'),
+        password: p('routes.' ++ vars.routeIndex ++ '.destination.password'),
+        path: p('routes.' ++ vars.routeIndex ++ '.destination.path')
+    }
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<set-variable value="#[payload.routeName]" doc:name="RouteName" doc:id="ea04ba9f-bd74-4f58-bfac-6001fba8ec33" variableName="routeName" />
+			<logger level="INFO" doc:name="Logger" doc:id="284076b2-91d6-44a7-a5c3-9d781d91f63e" message="Processing route: #[payload.routeName]" />
+			<choice doc:name="Choice" doc:id="9383ce44-9222-42ec-9e9f-19e11fa36b1f" >
+				<when expression='#[payload.routeStatus == "active"]'>
+					<logger level="INFO" doc:name="Logger" doc:id="ab581e44-6208-42a1-b682-eefe81ba58a3" message="Route is active. Processing..." />
+					<set-variable value="#[payload.routeStatus]" doc:name="Set routeStatus" doc:id="d0d95c16-86ff-43f7-bd21-510762d4137a" variableName="routeStatus"/>
+					<flow-ref doc:name="Flow Reference" doc:id="8ca881e3-e76d-449b-bb9e-a4fe497d8c6f" name="ProcessRoutesFlow"/>
+					<flow-ref doc:name="Flow Reference" doc:id="2dd66586-3016-43d2-bea9-c4b436003c95" name="SendNotificationFlow" />
+					<flow-ref doc:name="RemovingVariableFlow" doc:id="cf3c0b5e-1fcd-4a5a-adbc-c65e72480822" name="RemovingVariableFlow" />
+				</when>
+				<otherwise >
+					<set-variable value="#[payload.routeStatus]" doc:name="Set routeStatus" doc:id="3020e735-2841-4312-8c56-587a518e83e5" variableName="routeStatus" />
+					<flow-ref doc:name="Flow Reference" doc:id="a4b9c7c4-8b18-4848-84ee-c14eb541a444" name="SendNotificationFlow" />
+					<flow-ref doc:name="RemovingVariableFlow" doc:id="054f3d5b-585d-421e-89a0-02dc6a2eba1e" name="RemovingVariableFlow" />
+				</otherwise>
+			</choice>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="6a30a1bc-d0b4-464f-9050-dbf97123c985" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"StatusCode" : 200,
+	"Message" : "Routes have been processed Successfully."
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler ref="Global_error_handling" />
+	</flow>
+	<flow name="SendNotificationFlow" doc:id="e5d944ef-2d84-4494-87e0-2b9b98e95bdc" >
+		<ee:transform doc:name="Transform Message" doc:id="c8d10051-317d-4440-95e3-1048fc9b7d27">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var totalFiles = sizeOf(payload.attributes) as String default ""
+var successSubject = "Success"
+var FailureSubject = "Failure"
+var SuccessBody = "Greetings, " ++ totalFiles ++ " Files Have been processed in " ++ vars.routeName
+var FailureBody = "RouteStatus is " ++ vars.routeStatus ++ " in " ++ vars.routeName
+---
+if(vars.routeStatus == "active") {
+    "Subject" : successSubject,
+    "Body" : SuccessBody
+}  else {
+    "Subject" : FailureSubject,
+    "Body" : FailureBody
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<email:send doc:id="71dabc35-7a49-4118-b013-ae9a38173015" config-ref="Email_SMTP" fromAddress="deepakramoorthy@gmail.com" doc:name="Send_Email_Notification" subject="#[payload.Subject]">
+			<email:to-addresses >
+				<email:to-address value="deepakk@clarium.tech" />
+			</email:to-addresses>
+			<email:body contentType="text/plain">
+				<email:content ><![CDATA[#[payload.Body]]]></email:content>
+			</email:body>
+		</email:send>
+	</flow>
+	<flow name="ProcessRoutesFlow" doc:id="3fd0e9e3-8976-4086-ab78-4e9d8d0850c7" >
+		<logger level="INFO" doc:name="Logger" doc:id="c1eb7ed7-a4b6-4517-b0f2-e1522d7233e5" message="Setting up source SFTP connection for route: #[payload.routeName]"/>
+		<ee:transform doc:name="Set_SourceInfo and Destination_Info Variable" doc:id="e01740ce-09f0-4f08-b645-ee754674f90d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="sourceInfo" ><![CDATA[%dw 2.0
+                output application/json
+                ---
+                {
+                    host: payload.source.host,
+                    port: payload.source.port,
+                    username: payload.source.username,
+                    password: payload.source.password,
+                    path: payload.source.path
+                }]]></ee:set-variable>
+				<ee:set-variable variableName="DestinationInfo" ><![CDATA[%dw 2.0
+                output application/json
+                ---
+                {
+                    host: payload.destination.host,
+                    port: payload.destination.port,
+                    username: payload.destination.username,
+                    password: payload.destination.password,
+                    path: payload.destination.path
+                }]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<sftp:list doc:id="84276296-5ee5-41ac-a9ab-5bd022e17596" config-ref="SFTP_Config_Source" directoryPath="#[vars.sourceInfo.path]" doc:name="List Files from Source" />
+		<ee:transform doc:name="Set_FileName Variable" doc:id="b7386a34-6482-4db6-9240-05daddb6b834" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="FileName" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.attributes.fileName]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="b68548f4-f0c5-4d85-910a-dfb698fa0ce2" >
+			<when expression="#[isEmpty(payload)]">
+				<logger level="INFO" doc:name="Logger" doc:id="e972047b-e1bd-4d4b-ac2a-da7cf3ebde67" message="No files found in source directory for route: #[vars.routeName]"/>
+			</when>
+			<otherwise >
+				<foreach doc:name="For Each" doc:id="f33568d4-6b58-40fc-9484-b7373e520253" collection="#[payload]">
+			<logger level="INFO" doc:name="Logger" doc:id="3ee42f69-9665-4ed2-be2f-b26c81822198" message='#[payload.attributes.fileName ++ " started processing "]'/>
+					<set-variable value="#[payload.attributes.fileName]" doc:name="FileName" doc:id="2cdde0fe-427e-451a-8980-dfadf3c3de2a" variableName="FileName" />
+			<sftp:read doc:name="Read File From Source" doc:id="debfc763-023e-47e4-b0fe-afff752fabe9" config-ref="SFTP_Config_Source" path='#[vars.SourceInfo.path ++ "/" ++ payload.attributes.fileName]' />
+			<set-variable value="#[payload]" doc:name="FileContent" doc:id="dab5fdfc-eef6-4f41-844c-10940c3b3066" variableName="FileContent" />
+					<sftp:write doc:name="Write File to Destination" doc:id="55f43882-ddd7-4973-bf91-de4e984e7494" config-ref="SFTP_Config_destination" path='#[vars.DestinationInfo.path ++ "/" ++ vars.FileName]' mode="APPEND">
+				<sftp:content><![CDATA[#[vars.FileContent]]]></sftp:content>
+			</sftp:write>
+					<sftp:delete doc:name="Delete File From Source" doc:id="dec048ab-c2c4-4479-b35d-021aa01fb3a9" config-ref="SFTP_Config_Source" path='#[vars.SourceInfo.path ++ "/" ++ vars.FileName]'/>
+					<logger level="INFO" doc:name="Logger" doc:id="56dd7d91-8fed-4bde-9ef0-c07606cc9d0e" message='#[vars.FileName ++ " from sourceDetails: Username: " ++ vars.sourceInfo.username ++ " host: " ++ vars.sourceInfo.host ++ " password: " ++ vars.sourceInfo.password ++ " is Transfered to DestinationDetails: " ++ vars.DestinationInfo.username ++ " host: " ++ vars.DestinationInfo.host ++ " password: " ++ vars.DestinationInfo.password ++ " has been completed successfully."]'/>
+		</foreach>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="RemovingVariableFlow" doc:id="a2bb5788-9421-4bc1-9485-11d89b201392" >
+		<foreach doc:name="For Each" doc:id="98b113a7-61a2-427a-8671-31b330357679" collection='#[[&#10;	"routesStatus",&#10;    "DestinationInfo",&#10;    "SourceInfo",&#10;    "FileName",&#10;    "FileContent"&#10;]]' >
+			<remove-variable doc:name="Remove Variable" doc:id="9b9fcf3a-563e-4502-b9e1-4db4e6e3d277" variableName="#[payload]" />
+		</foreach>
+	</flow>
+	
+</mule>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd">
+	<sftp:config name="SFTP_Config_Source" doc:name="SFTP Config" doc:id="e67999bc-4996-42c2-872a-93dbccd15b36" >
+		<sftp:connection host="#[vars.SourceInfo.host]" port="#[vars.SourceInfo.port]" username="#[vars.SourceInfo.username]" password="#[vars.SourceInfo.password]"/>
+	</sftp:config>
+	<sftp:config name="SFTP_Config_destination" doc:name="SFTP Config" doc:id="db5ef48f-0844-4143-8ae5-b2309069c86b" >
+		<sftp:connection host="#[vars.DestinationInfo.host]" port="#[vars.DestinationInfo.port]" username="#[vars.DestinationInfo.username]" password="#[vars.DestinationInfo.password]" />
+	</sftp:config>
+	<email:smtp-config name="Email_SMTP" doc:name="Email SMTP" doc:id="3bc5b0b9-a85a-4a45-9e3b-ae9f0f6edc77" >
+		<email:smtp-connection host="smtp.gmail.com" port="587" user="deepakramoorthy@gmail.com" password="kwwjsqneocfuxkgd" >
+			<email:properties >
+				<email:property key="mail.smtp.starttls.enable" value="true" />
+			</email:properties>
+		</email:smtp-connection>
+	</email:smtp-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="36a123c6-4dd5-4ff9-ab18-1f2cd35f0786" file="${mule.env}-config.yaml" />
+</mule>

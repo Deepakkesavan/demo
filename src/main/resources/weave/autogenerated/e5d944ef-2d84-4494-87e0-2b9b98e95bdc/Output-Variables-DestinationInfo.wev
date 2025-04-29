@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_e5d944ef_2d84_4494_87e0_2b9b98e95bdc_Output_Variables_DestinationInfo = Any
+
